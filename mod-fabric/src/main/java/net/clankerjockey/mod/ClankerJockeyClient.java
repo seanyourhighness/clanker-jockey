@@ -7,6 +7,7 @@ import net.clankerjockey.core.engine.EngineException;
 import net.clankerjockey.core.engine.InferenceEngine;
 import net.clankerjockey.core.runtime.BundleBootstrap;
 import net.clankerjockey.mod.agent.ClankerJockeyAgent;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.VillagerEntityRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +30,29 @@ public class ClankerJockeyClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         EntityRendererRegistry.register(ClankerJockeyMod.COMPANION_TYPE, VillagerEntityRenderer::new);
+        // Locate (and, on first launch, extract) the sidecar bundle under
+        // <gamedir>/clankerjockey. If it's missing entirely, offer a one-click
+        // download screen (option 3); declining runs degraded.
+        Path gameDir = Path.of(".").toAbsolutePath();
+        Path bundleDir = BundleBootstrap.ensureBundle(gameDir, msg -> LOGGER.info("[{}] {}", ClankerJockeyMod.MOD_ID, msg));
+        if (bundleDir != null) {
+            startEngine();
+        } else {
+            LOGGER.warn("[{}] no sidecar bundle found; offering the download screen", ClankerJockeyMod.MOD_ID);
+            MinecraftClient.getInstance().execute(() ->
+                    MinecraftClient.getInstance().setScreen(new BundleDownloadScreen(gameDir,
+                            this::startEngine,
+                            () -> LOGGER.warn("[{}] bundle declined; the mod runs degraded (no brain)", ClankerJockeyMod.MOD_ID))));
+        }
+    }
+
+    /**
+     * Start the llama-server sidecar on a background thread (it blocks up to
+     * 30 s waiting for /health). Called once the bundle is present — either
+     * found/extracted at launch, or after the user finishes the download screen.
+     */
+    private void startEngine() {
         Thread engineThread = new Thread(() -> {
-            // Locate (and, on first launch, extract) the sidecar bundle under
-            // <gamedir>/clankerjockey. Degrade-safe: a missing bundle means the
-            // engine below logs a warning and the mod runs degraded.
-            Path gameDir = Path.of(".").toAbsolutePath();
-            Path bundleDir = BundleBootstrap.ensureBundle(gameDir, msg -> LOGGER.info("[{}] {}", ClankerJockeyMod.MOD_ID, msg));
-            if (bundleDir == null) {
-                LOGGER.warn("[{}] no sidecar bundle found; the mod runs degraded (no brain)", ClankerJockeyMod.MOD_ID);
-            }
             try {
                 engine = createEngine();
                 engine.start();

@@ -55,33 +55,46 @@ public class ClankerJockeyMod {
     public void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             // Locate (and, on first launch, extract) the sidecar bundle under
-            // <gamedir>/clankerjockey. Degrade-safe: a missing bundle just means the
-            // sidecars below log a warning and run disabled.
+            // <gamedir>/clankerjockey. If it's missing entirely, offer a
+            // one-click download screen (option 3); declining runs degraded.
             Path gameDir = Path.of(".").toAbsolutePath();
             Path bundleDir = BundleBootstrap.ensureBundle(gameDir, msg -> LOGGER.info("[{}] {}", MOD_ID, msg));
-            if (bundleDir == null) {
-                LOGGER.warn("[{}] no sidecar bundle found; the mod runs degraded (text-only, no brain)", MOD_ID);
+            if (bundleDir != null) {
+                startSidecars();
+            } else {
+                LOGGER.warn("[{}] no sidecar bundle found; offering the download screen", MOD_ID);
+                Minecraft.getInstance().setScreen(new BundleDownloadScreen(gameDir,
+                        this::startSidecars,
+                        () -> LOGGER.warn("[{}] bundle declined; the mod runs degraded (text-only, no brain)", MOD_ID)));
             }
-
-            try {
-                engine = createEngine();
-                engine.start();
-                LOGGER.info("[{}] inference engine healthy on port {}", MOD_ID, engine.port());
-                ClankerJockeyAgent.start(engine);
-                LOGGER.info("[{}] companion agent online", MOD_ID);
-                ClankerJockeyAgent clankerjockeyAgent = ClankerJockeyAgent.instance();
-                if (clankerjockeyAgent != null) {
-                    new WorldSensors(clankerjockeyAgent::onSignal).register();
-                    LOGGER.info("[{}] world sensors online", MOD_ID);
-                }
-            } catch (EngineException e) {
-                // Never crash the game over the assistant: log loudly and run degraded.
-                LOGGER.error("[{}] failed to start inference engine; mod runs degraded", MOD_ID, e);
-                engine = null;
-            }
-            startTts();
-            startStt();
         });
+    }
+
+    /**
+     * Start all three sidecars (brain, voice-out, voice-in). Called once the
+     * bundle is present — either found/extracted at launch, or after the user
+     * finishes the download screen. Runs on the client thread; each sidecar
+     * degrades independently.
+     */
+    private void startSidecars() {
+        try {
+            engine = createEngine();
+            engine.start();
+            LOGGER.info("[{}] inference engine healthy on port {}", MOD_ID, engine.port());
+            ClankerJockeyAgent.start(engine);
+            LOGGER.info("[{}] companion agent online", MOD_ID);
+            ClankerJockeyAgent clankerjockeyAgent = ClankerJockeyAgent.instance();
+            if (clankerjockeyAgent != null) {
+                new WorldSensors(clankerjockeyAgent::onSignal).register();
+                LOGGER.info("[{}] world sensors online", MOD_ID);
+            }
+        } catch (EngineException e) {
+            // Never crash the game over the assistant: log loudly and run degraded.
+            LOGGER.error("[{}] failed to start inference engine; mod runs degraded", MOD_ID, e);
+            engine = null;
+        }
+        startTts();
+        startStt();
     }
 
     /**

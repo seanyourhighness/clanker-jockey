@@ -37,6 +37,17 @@ public final class BundleBootstrap {
     /** Directory name the mod expects the bundle to live in, under the game dir. */
     public static final String BUNDLE_DIR_NAME = "clankerjockey";
 
+    /**
+     * Canonical download location for the Windows sidecar bundle, published as a
+     * GitHub Release asset (fits under the 2 GB per-asset limit). Overridable via
+     * the {@code CLANKERJOCKEY_BUNDLE_URL} env var for mirrors/CDN.
+     */
+    public static final String BUNDLE_URL =
+            "https://github.com/seanyourhighness/clanker-jockey/releases/download/v0.1.0/clankerjockey-win-bundle.zip";
+
+    /** File name the bundle zip is saved as when downloaded into the game dir. */
+    public static final String BUNDLE_ZIP_NAME = "clankerjockey-win-bundle.zip";
+
     /** Marker written after a successful extraction so we don't re-unpack every launch. */
     private static final String MARKER = ".clankerjockey-bundle";
 
@@ -48,6 +59,15 @@ public final class BundleBootstrap {
     };
 
     private BundleBootstrap() {}
+
+    /**
+     * The URL to download the bundle from: {@link #BUNDLE_URL} unless the
+     * {@code CLANKERJOCKEY_BUNDLE_URL} env var overrides it (for mirrors/CDN).
+     */
+    public static String bundleUrl() {
+        String env = System.getenv("CLANKERJOCKEY_BUNDLE_URL");
+        return (env != null && !env.isBlank()) ? env.trim() : BUNDLE_URL;
+    }
 
     /** The LLM model file whose presence marks the "brain" half of the bundle. */
     public static Path modelFile(Path bundleDir) {
