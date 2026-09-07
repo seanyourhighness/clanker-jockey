@@ -79,8 +79,11 @@ if [ -n "${2:-}" ] && command -v x86_64-w64-mingw32-g++ >/dev/null 2>&1; then
   cp build-win/bin/whisper-server.exe "$WIN_OUT/bin/"
   # mingw runtime DLLs (whisper/ggml are statically linked into the .exe)
   RT="$(x86_64-w64-mingw32-g++ -print-search-dirs 2>/dev/null | head -1)"
+  # NOTE: libwinpthread-1.dll (a transitive libgomp/OpenMP dep) lives under
+  # /usr/x86_64-w64-mingw32/lib on Ubuntu, NOT in the gcc dir — search both,
+  # or the Windows bundle fails to launch (verified 2026-09-07).
   for dll in libgcc_s_seh-1.dll libgomp-1.dll libstdc++-6.dll libwinpthread-1.dll; do
-    found="$(find /usr/lib/gcc/x86_64-w64-mingw32 -name "$dll" 2>/dev/null | head -1)"
+    found="$(find /usr/lib/gcc/x86_64-w64-mingw32 /usr/x86_64-w64-mingw32 -name "$dll" 2>/dev/null | head -1)"
     [ -n "$found" ] && cp "$found" "$WIN_OUT/bin/" || echo "WARN: $dll not found"
   done
   cp "models/$MODEL_NAME" "$WIN_OUT/models/"

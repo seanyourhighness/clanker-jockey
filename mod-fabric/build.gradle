@@ -40,3 +40,10 @@ java {
     }
     withSourcesJar()
 }
+
+jar {
+    // Bundle the plain-Java core classes directly into the mod jar (same shading
+    // pattern as mod-forge). Without this the Fabric jar is missing core and the
+    // mod fails at runtime with NoClassDefFoundError.
+    from(project(":core").sourceSets.main.output)
+}

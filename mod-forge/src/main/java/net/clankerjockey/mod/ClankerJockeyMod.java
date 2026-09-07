@@ -8,6 +8,7 @@ import net.clankerjockey.core.engine.SttConfig;
 import net.clankerjockey.core.engine.SttEngine;
 import net.clankerjockey.core.engine.TtsConfig;
 import net.clankerjockey.core.engine.TtsEngine;
+import net.clankerjockey.core.runtime.BundleBootstrap;
 import net.minecraft.client.Minecraft;
 import net.clankerjockey.mod.agent.ClankerJockeyAgent;
 import net.clankerjockey.mod.companion.ClankerJockeyModCompanion;
@@ -53,6 +54,15 @@ public class ClankerJockeyMod {
     @SubscribeEvent
     public void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
+            // Locate (and, on first launch, extract) the sidecar bundle under
+            // <gamedir>/clankerjockey. Degrade-safe: a missing bundle just means the
+            // sidecars below log a warning and run disabled.
+            Path gameDir = Path.of(".").toAbsolutePath();
+            Path bundleDir = BundleBootstrap.ensureBundle(gameDir, msg -> LOGGER.info("[{}] {}", MOD_ID, msg));
+            if (bundleDir == null) {
+                LOGGER.warn("[{}] no sidecar bundle found; the mod runs degraded (text-only, no brain)", MOD_ID);
+            }
+
             try {
                 engine = createEngine();
                 engine.start();

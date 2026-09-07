@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.clankerjockey.core.engine.EngineConfig;
 import net.clankerjockey.core.engine.EngineException;
 import net.clankerjockey.core.engine.InferenceEngine;
+import net.clankerjockey.core.runtime.BundleBootstrap;
 import net.clankerjockey.mod.agent.ClankerJockeyAgent;
 import net.minecraft.client.render.entity.VillagerEntityRenderer;
 import org.slf4j.Logger;
@@ -29,6 +30,14 @@ public class ClankerJockeyClient implements ClientModInitializer {
     public void onInitializeClient() {
         EntityRendererRegistry.register(ClankerJockeyMod.COMPANION_TYPE, VillagerEntityRenderer::new);
         Thread engineThread = new Thread(() -> {
+            // Locate (and, on first launch, extract) the sidecar bundle under
+            // <gamedir>/clankerjockey. Degrade-safe: a missing bundle means the
+            // engine below logs a warning and the mod runs degraded.
+            Path gameDir = Path.of(".").toAbsolutePath();
+            Path bundleDir = BundleBootstrap.ensureBundle(gameDir, msg -> LOGGER.info("[{}] {}", ClankerJockeyMod.MOD_ID, msg));
+            if (bundleDir == null) {
+                LOGGER.warn("[{}] no sidecar bundle found; the mod runs degraded (no brain)", ClankerJockeyMod.MOD_ID);
+            }
             try {
                 engine = createEngine();
                 engine.start();
